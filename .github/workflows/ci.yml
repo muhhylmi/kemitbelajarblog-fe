@@ -45,4 +45,5 @@ jobs:
              git pull origin master && \
              npm ci && \
              npm run build && \
+             export PATH=\$PATH:/home/ubuntu/.npm-global/bin && \
              pm2 restart kemitbelajarblog-fe --update-env"
