@@ -92,6 +92,14 @@ export default function ArticleDetail() {
   const renderMarkdown = (text: string) => {
     if (!text) return null;
 
+    const parseInlineMarkdown = (inlineText: string): string => {
+      return inlineText
+        .replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>")
+        .replace(/\*(.*?)\*/g, "<em>$1</em>")
+        .replace(/!\[(.*?)\]\s*\((.*?)\)/g, '<img src="$2" alt="$1" class="my-4 rounded-xl max-w-full h-auto inline-block" />')
+        .replace(/\[(.*?)\]\s*\((.*?)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer" class="text-primary underline hover:text-secondary transition-colors">$1</a>');
+    };
+
     // Split paragraphs by double newlines
     const blocks = text.split(/\n\s*\n/);
 
@@ -101,25 +109,19 @@ export default function ArticleDetail() {
       // Heading 1
       if (trimmed.startsWith("# ")) {
         return (
-          <h1 key={idx} className="text-3xl md:text-4xl font-bold font-headline mt-10 mb-4 text-on-surface">
-            {trimmed.replace("# ", "")}
-          </h1>
+          <h1 key={idx} className="text-3xl md:text-4xl font-bold font-headline mt-10 mb-4 text-on-surface" dangerouslySetInnerHTML={{ __html: parseInlineMarkdown(trimmed.replace("# ", "")) }} />
         );
       }
       // Heading 2
       if (trimmed.startsWith("## ")) {
         return (
-          <h2 key={idx} className="text-2xl font-bold font-headline mt-10 mb-4 text-on-surface">
-            {trimmed.replace("## ", "")}
-          </h2>
+          <h2 key={idx} className="text-2xl font-bold font-headline mt-10 mb-4 text-on-surface" dangerouslySetInnerHTML={{ __html: parseInlineMarkdown(trimmed.replace("## ", "")) }} />
         );
       }
       // Heading 3
       if (trimmed.startsWith("### ")) {
         return (
-          <h3 key={idx} className="text-xl font-bold font-headline mt-8 mb-3 text-on-surface">
-            {trimmed.replace("### ", "")}
-          </h3>
+          <h3 key={idx} className="text-xl font-bold font-headline mt-8 mb-3 text-on-surface" dangerouslySetInnerHTML={{ __html: parseInlineMarkdown(trimmed.replace("### ", "")) }} />
         );
       }
       // Blockquote
@@ -128,13 +130,12 @@ export default function ArticleDetail() {
           <blockquote
             key={idx}
             className="border border-outline-variant/30 pl-6 pr-6 py-4 my-8 font-headline text-xl text-on-surface-variant italic bg-surface-container-low rounded-lg relative"
-          >
-            {trimmed.replace(/^>\s*/gm, "")}
-          </blockquote>
+            dangerouslySetInnerHTML={{ __html: parseInlineMarkdown(trimmed.replace(/^>\s*/gm, "")) }}
+          />
         );
       }
       // Image markdown: ![Alt](url)
-      const imgMatch = trimmed.match(/^!\[(.*?)\]\((.*?)\)$/);
+      const imgMatch = trimmed.match(/^!\[(.*?)\]\s*\((.*?)\)$/);
       if (imgMatch) {
         return (
           <div key={idx} className="my-10 rounded-xl overflow-hidden bg-surface-container-low">
@@ -148,7 +149,7 @@ export default function ArticleDetail() {
         return (
           <ul key={idx} className="list-disc pl-6 mb-6 space-y-2 text-on-surface-variant leading-relaxed">
             {items.map((item, i) => (
-              <li key={i}>{item.replace(/^[*\-]\s+/, "")}</li>
+              <li key={i} dangerouslySetInnerHTML={{ __html: parseInlineMarkdown(item.replace(/^[*\-]\s+/, "")) }} />
             ))}
           </ul>
         );
@@ -159,22 +160,18 @@ export default function ArticleDetail() {
         return (
           <ol key={idx} className="list-decimal pl-6 mb-6 space-y-2 text-on-surface-variant leading-relaxed">
             {items.map((item, i) => (
-              <li key={i}>{item.replace(/^\d+\.\s+/, "")}</li>
+              <li key={i} dangerouslySetInnerHTML={{ __html: parseInlineMarkdown(item.replace(/^\d+\.\s+/, "")) }} />
             ))}
           </ol>
         );
       }
 
-      // Default paragraph (supports inline bold/italic)
-      const parsedText = trimmed
-        .replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>")
-        .replace(/\*(.*?)\*/g, "<em>$1</em>");
-
+      // Default paragraph (supports inline bold/italic/links/images)
       return (
         <p
           key={idx}
           className="text-lg leading-relaxed text-on-surface-variant mb-6"
-          dangerouslySetInnerHTML={{ __html: parsedText }}
+          dangerouslySetInnerHTML={{ __html: parseInlineMarkdown(trimmed) }}
         />
       );
     });

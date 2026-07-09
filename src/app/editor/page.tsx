@@ -286,7 +286,8 @@ function EditorContent() {
       .replace(/^> (.*$)/gim, '<blockquote class="border-l-4 border-primary pl-4 italic my-6 text-on-surface-variant bg-surface-container/20 py-2 rounded-r">$1</blockquote>')
       .replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>")
       .replace(/\*(.*?)\*/g, "<em>$1</em>")
-      .replace(/!\[(.*?)\]\((.*?)\)/g, '<div class="my-8 rounded-xl overflow-hidden shadow-sm bg-surface-container-high"><img src="$2" alt="$1" class="w-full h-auto" /></div>')
+      .replace(/!\[(.*?)\]\s*\((.*?)\)/g, '<div class="my-8 rounded-xl overflow-hidden shadow-sm bg-surface-container-high"><img src="$2" alt="$1" class="w-full h-auto" /></div>')
+      .replace(/\[(.*?)\]\s*\((.*?)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer" class="text-primary underline hover:text-secondary transition-colors">$1</a>')
       .replace(/^\d+\.\s+(.*$)/gim, '<li class="ml-4 list-decimal my-1">$1</li>')
       .replace(/^\-\s+(.*$)/gim, '<li class="ml-4 list-disc my-1">$1</li>');
 
