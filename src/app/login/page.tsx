@@ -36,8 +36,9 @@ export default function LoginPage() {
       // Success
       login(data.data.token, data.data.user);
       router.push("/editor");
-    } catch (err: any) {
-      setError(err.message || "An unexpected error occurred.");
+    } catch (err) {
+      const errMsg = err instanceof Error ? err.message : "An unexpected error occurred.";
+      setError(errMsg);
     } finally {
       setLoading(false);
     }

@@ -77,6 +77,7 @@ export const BlogProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   // Initialize: fetch posts and load theme from localStorage
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setMounted(true);
 
     // Load theme from localStorage (UI-only preference)

@@ -34,6 +34,7 @@ export default function ArticleDetail() {
   useEffect(() => {
     if (post && !hasViewed) {
       viewPost(post.id).catch((err) => console.error("Failed to track view:", err));
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setHasViewed(true);
     }
   }, [post, hasViewed, viewPost]);

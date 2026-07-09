@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { useBlog } from "@/context/BlogContext";
 import { useAuth } from "@/context/AuthContext";
 
@@ -10,7 +10,6 @@ export const Header: React.FC = () => {
   const { theme, toggleTheme } = useBlog();
   const { user } = useAuth();
   const [scrolled, setScrolled] = useState(false);
-  const pathname = usePathname();
   const router = useRouter();
 
   useEffect(() => {

@@ -21,7 +21,6 @@ function EditorContent() {
 
   // Form states
   const [title, setTitle] = useState("");
-  const [category, setCategory] = useState("Philosophy");
   const [categories, setCategories] = useState<string[]>(["Philosophy"]);
   const [content, setContent] = useState("");
 
@@ -41,9 +40,6 @@ function EditorContent() {
   const [analyticsSortKey, setAnalyticsSortKey] = useState<"title" | "category" | "views" | "shares">("views");
   const [analyticsSortOrder, setAnalyticsSortOrder] = useState<"asc" | "desc">("desc");
 
-  useEffect(() => {
-    setListPage(1);
-  }, [searchQuery]);
 
   const handleListSort = (key: typeof listSortKey) => {
     if (listSortKey === key) {
@@ -73,13 +69,21 @@ function EditorContent() {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   // User Management State
-  const [systemUsers, setSystemUsers] = useState<any[]>([]);
+  interface SystemUser {
+    id: string;
+    name: string;
+    username: string;
+    role: string;
+    avatar?: string;
+  }
+
+  const [systemUsers, setSystemUsers] = useState<SystemUser[]>([]);
   const [newUser, setNewUser] = useState({ name: "", username: "", password: "", role: "Author" });
   const [userError, setUserError] = useState("");
   const [userSuccess, setUserSuccess] = useState("");
   const [isAddingUser, setIsAddingUser] = useState(false);
   const [showAddUserDialog, setShowAddUserDialog] = useState(false);
-  const [editingUser, setEditingUser] = useState<any>(null);
+  const [editingUser, setEditingUser] = useState<SystemUser | null>(null);
   const [isUpdatingUser, setIsUpdatingUser] = useState(false);
   const [isDeletingUser, setIsDeletingUser] = useState<string | null>(null);
   
@@ -141,8 +145,9 @@ function EditorContent() {
       if (usersData.status === "success") {
         setSystemUsers(usersData.data);
       }
-    } catch (err: any) {
-      setUserError(err.message);
+    } catch (err) {
+      const errMsg = err instanceof Error ? err.message : "Failed to create user";
+      setUserError(errMsg);
     } finally {
       setIsAddingUser(false);
     }
@@ -185,8 +190,9 @@ function EditorContent() {
       if (usersData.status === "success") {
         setSystemUsers(usersData.data);
       }
-    } catch (err: any) {
-      setUserError(err.message);
+    } catch (err) {
+      const errMsg = err instanceof Error ? err.message : "Failed to update user";
+      setUserError(errMsg);
     } finally {
       setIsUpdatingUser(false);
     }
@@ -216,8 +222,9 @@ function EditorContent() {
       
       // Reload users
       setSystemUsers(prev => prev.filter(u => u.id !== id));
-    } catch (err: any) {
-      setUserError(err.message);
+    } catch (err) {
+      const errMsg = err instanceof Error ? err.message : "Failed to delete user";
+      setUserError(errMsg);
     } finally {
       setIsDeletingUser(null);
     }
@@ -231,7 +238,6 @@ function EditorContent() {
       if (existing) {
         Promise.resolve().then(() => {
           setTitle(existing.title);
-          setCategory(existing.category);
           setCategories(existing.categories || (existing.category ? existing.category.split(",").map(c => c.trim()) : []));
           setContent(existing.content);
           setIsEditing(true);
@@ -425,7 +431,6 @@ function EditorContent() {
 
   const handleNewPostClick = () => {
     setTitle("");
-    setCategory("Philosophy");
     setCategories(["Philosophy"]);
     setContent("");
     setIsEditing(false);
@@ -448,7 +453,6 @@ function EditorContent() {
 
   const handleEditPost = (post: Post) => {
     setTitle(post.title);
-    setCategory(post.category);
     setCategories(post.categories || (post.category ? post.category.split(",").map(c => c.trim()) : []));
     setContent(post.content);
     setIsEditing(true);
@@ -870,7 +874,10 @@ function EditorContent() {
                       type="text"
                       placeholder="Search title or category..."
                       value={searchQuery}
-                      onChange={(e) => setSearchQuery(e.target.value)}
+                      onChange={(e) => {
+                        setSearchQuery(e.target.value);
+                        setListPage(1);
+                      }}
                       className="w-full pl-10 pr-4 py-2 rounded-lg border border-outline-variant/50 bg-surface-container-low text-on-surface text-sm focus:outline-none focus:border-primary transition-colors"
                     />
                   </div>
