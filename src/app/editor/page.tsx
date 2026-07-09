@@ -6,6 +6,7 @@ import Link from "next/link";
 import { useBlog } from "@/context/BlogContext";
 import { useAuth } from "@/context/AuthContext";
 import { Post } from "@/types";
+import { API_BASE_URL } from "@/config";
 
 function EditorContent() {
   const router = useRouter();
@@ -19,28 +20,50 @@ function EditorContent() {
   const [currentEditId, setCurrentEditId] = useState<string | null>(editId);
 
   // Form states
-  const [title, setTitle] = useState("The Art of Mindful Cultivation");
+  const [title, setTitle] = useState("");
   const [category, setCategory] = useState("Philosophy");
-  const [content, setContent] = useState(
-    `Mindfulness isn't just a practice of the mind; it is a physical anchoring to the earth beneath our feet. When we talk about "rooted warmth," we refer to that specific sensation of being fully present in a space that nurtures our growth.
+  const [categories, setCategories] = useState<string[]>(["Philosophy"]);
+  const [content, setContent] = useState("");
 
-## The Soil of Creativity
+  // Pagination State for Posts List
+  const [listPage, setListPage] = useState(1);
+  const listPageSize = 10;
 
-Just as a forest thrives on the invisible network of mycelium, our ideas require a rich substrate of rest and observation. 
+  // Pagination State for Analytics List
+  const [analyticsPage, setAnalyticsPage] = useState(1);
+  const analyticsPageSize = 10;
 
-> "Nature does not hurry, yet everything is accomplished." — Lao Tzu
+  // Sorting States for Posts List
+  const [listSortKey, setListSortKey] = useState<"title" | "category" | "status" | "publishedAt">("publishedAt");
+  const [listSortOrder, setListSortOrder] = useState<"asc" | "desc">("desc");
 
-In this editor, we strip away the noise of the digital world. No notifications, no clutter—just you and the rhythmic dance of the cursor.
+  // Sorting States for Analytics List
+  const [analyticsSortKey, setAnalyticsSortKey] = useState<"title" | "category" | "views" | "shares">("views");
+  const [analyticsSortOrder, setAnalyticsSortOrder] = useState<"asc" | "desc">("desc");
 
-### Key Practices:
-1. **Breathe with the sentence**: Let the length of your thoughts match the rhythm of your breath.
-2. **Observe the light**: Notice how the sun shifts across your desk as you write.
-3. **Listen to the silence**: The gaps between words are as important as the words themselves.
+  useEffect(() => {
+    setListPage(1);
+  }, [searchQuery]);
 
-![Forest Morning](https://images.unsplash.com/photo-1441974231531-c6227db76b6e?auto=format&fit=crop&q=80&w=800)
+  const handleListSort = (key: typeof listSortKey) => {
+    if (listSortKey === key) {
+      setListSortOrder(prev => prev === "asc" ? "desc" : "asc");
+    } else {
+      setListSortKey(key);
+      setListSortOrder("asc");
+    }
+    setListPage(1);
+  };
 
-The image above represents the clarity we seek in our prose. Deep greens, soft morning light, and a path that reveals itself only as we take the next step.`
-  );
+  const handleAnalyticsSort = (key: typeof analyticsSortKey) => {
+    if (analyticsSortKey === key) {
+      setAnalyticsSortOrder(prev => prev === "asc" ? "desc" : "asc");
+    } else {
+      setAnalyticsSortKey(key);
+      setAnalyticsSortOrder("desc");
+    }
+    setAnalyticsPage(1);
+  };
 
   // UI States
   const [showPreview, setShowPreview] = useState(true);
@@ -72,7 +95,7 @@ The image above represents the clarity we seek in our prose. Deep greens, soft m
   // Fetch system users when opening settings
   useEffect(() => {
     if (activeView === "settings" && token) {
-      fetch("/api/users", {
+      fetch(`${API_BASE_URL}/users`, {
         headers: { "Authorization": `Bearer ${token}` }
       })
       .then(r => r.json())
@@ -92,7 +115,7 @@ The image above represents the clarity we seek in our prose. Deep greens, soft m
     setIsAddingUser(true);
 
     try {
-      const res = await fetch("/api/users", {
+      const res = await fetch(`${API_BASE_URL}/users`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -111,7 +134,7 @@ The image above represents the clarity we seek in our prose. Deep greens, soft m
       setShowAddUserDialog(false);
       
       // Reload users
-      const usersRes = await fetch("/api/users", {
+      const usersRes = await fetch(`${API_BASE_URL}/users`, {
         headers: { "Authorization": `Bearer ${token}` }
       });
       const usersData = await usersRes.json();
@@ -133,7 +156,7 @@ The image above represents the clarity we seek in our prose. Deep greens, soft m
     setIsUpdatingUser(true);
 
     try {
-      const res = await fetch(`/api/users/${editingUser.id}`, {
+      const res = await fetch(`${API_BASE_URL}/users/${editingUser.id}`, {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
@@ -155,7 +178,7 @@ The image above represents the clarity we seek in our prose. Deep greens, soft m
       setEditingUser(null);
       
       // Reload users
-      const usersRes = await fetch("/api/users", {
+      const usersRes = await fetch(`${API_BASE_URL}/users`, {
         headers: { "Authorization": `Bearer ${token}` }
       });
       const usersData = await usersRes.json();
@@ -177,7 +200,7 @@ The image above represents the clarity we seek in our prose. Deep greens, soft m
     setIsDeletingUser(id);
 
     try {
-      const res = await fetch(`/api/users/${id}`, {
+      const res = await fetch(`${API_BASE_URL}/users/${id}`, {
         method: "DELETE",
         headers: {
           "Authorization": `Bearer ${token}`
@@ -209,6 +232,7 @@ The image above represents the clarity we seek in our prose. Deep greens, soft m
         Promise.resolve().then(() => {
           setTitle(existing.title);
           setCategory(existing.category);
+          setCategories(existing.categories || (existing.category ? existing.category.split(",").map(c => c.trim()) : []));
           setContent(existing.content);
           setIsEditing(true);
           setCurrentEditId(targetId);
@@ -298,7 +322,8 @@ The image above represents the clarity we seek in our prose. Deep greens, soft m
           await updatePost({
             ...existing,
             title,
-            category,
+            category: categories.join(", "),
+            categories,
             content,
             summary: content.substring(0, 150).replace(/[#>*\-]/g, "").trim() + "...",
             readTime: calculateReadTime(content),
@@ -323,7 +348,8 @@ The image above represents the clarity we seek in our prose. Deep greens, soft m
         await addPost({
           id: finalSlug,
           title,
-          category,
+          category: categories.join(", "),
+          categories,
           content,
           summary: content.substring(0, 150).replace(/[#>*\-]/g, "").trim() + "...",
           readTime: calculateReadTime(content),
@@ -353,7 +379,8 @@ The image above represents the clarity we seek in our prose. Deep greens, soft m
           await updatePost({
             ...existing,
             title,
-            category,
+            category: categories.join(", "),
+            categories,
             content,
             summary: content.substring(0, 150).replace(/[#>*\-]/g, "").trim() + "...",
             readTime: calculateReadTime(content),
@@ -378,7 +405,8 @@ The image above represents the clarity we seek in our prose. Deep greens, soft m
         await addPost({
           id: finalSlug,
           title,
-          category,
+          category: categories.join(", "),
+          categories,
           content,
           summary: content.substring(0, 150).replace(/[#>*\-]/g, "").trim() + "...",
           readTime: calculateReadTime(content),
@@ -398,6 +426,7 @@ The image above represents the clarity we seek in our prose. Deep greens, soft m
   const handleNewPostClick = () => {
     setTitle("");
     setCategory("Philosophy");
+    setCategories(["Philosophy"]);
     setContent("");
     setIsEditing(false);
     setCurrentEditId(null);
@@ -420,6 +449,7 @@ The image above represents the clarity we seek in our prose. Deep greens, soft m
   const handleEditPost = (post: Post) => {
     setTitle(post.title);
     setCategory(post.category);
+    setCategories(post.categories || (post.category ? post.category.split(",").map(c => c.trim()) : []));
     setContent(post.content);
     setIsEditing(true);
     setCurrentEditId(post.id);
@@ -440,7 +470,62 @@ The image above represents the clarity we seek in our prose. Deep greens, soft m
   const filteredPostsList = posts.filter(
     (p) =>
       p.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      p.category.toLowerCase().includes(searchQuery.toLowerCase())
+      p.category.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (p.categories && p.categories.some((c) => c.toLowerCase().includes(searchQuery.toLowerCase())))
+  );
+
+  const sortedPostsList = [...filteredPostsList].sort((a, b) => {
+    let valA = a[listSortKey];
+    let valB = b[listSortKey];
+
+    if (listSortKey === "publishedAt") {
+      const parseDate = (dStr: string) => {
+        if (!dStr || dStr.toLowerCase() === "today") return new Date().getTime();
+        return new Date(dStr).getTime() || 0;
+      };
+      const timeA = parseDate(a.publishedAt);
+      const timeB = parseDate(b.publishedAt);
+      return listSortOrder === "asc" ? timeA - timeB : timeB - timeA;
+    }
+
+    if (!valA) valA = "";
+    if (!valB) valB = "";
+
+    const strA = String(valA);
+    const strB = String(valB);
+
+    return listSortOrder === "asc"
+      ? strA.localeCompare(strB)
+      : strB.localeCompare(strA);
+  });
+
+  const totalListPages = Math.ceil(sortedPostsList.length / listPageSize) || 1;
+  const paginatedPostsList = sortedPostsList.slice(
+    (listPage - 1) * listPageSize,
+    listPage * listPageSize
+  );
+
+  const publishedPostsForAnalytics = posts.filter((p) => p.status === "published");
+
+  const sortedAnalyticsList = [...publishedPostsForAnalytics].sort((a, b) => {
+    if (analyticsSortKey === "views" || analyticsSortKey === "shares") {
+      const valA = a[analyticsSortKey] || 0;
+      const valB = b[analyticsSortKey] || 0;
+      return analyticsSortOrder === "asc" ? valA - valB : valB - valA;
+    }
+
+    const valA = String(a[analyticsSortKey] || "");
+    const valB = String(b[analyticsSortKey] || "");
+
+    return analyticsSortOrder === "asc"
+      ? valA.localeCompare(valB)
+      : valB.localeCompare(valA);
+  });
+
+  const totalAnalyticsPages = Math.ceil(sortedAnalyticsList.length / analyticsPageSize) || 1;
+  const paginatedAnalyticsPosts = sortedAnalyticsList.slice(
+    (analyticsPage - 1) * analyticsPageSize,
+    analyticsPage * analyticsPageSize
   );
 
   const sidebarContent = (
@@ -562,7 +647,7 @@ The image above represents the clarity we seek in our prose. Deep greens, soft m
         {activeView === "editor" && (
           <button
             onClick={handlePublish}
-            className="w-full bg-primary text-on-primary py-3 rounded-lg font-bold shadow-sm hover:opacity-90 active:scale-95 transition-all duration-150 cursor-pointer"
+            className="w-full bg-primary text-on-primary py-3 rounded-lg font-bold hover:opacity-85 active:scale-95 transition-all duration-150 cursor-pointer"
           >
             Publish Now
           </button>
@@ -630,7 +715,7 @@ The image above represents the clarity we seek in our prose. Deep greens, soft m
               <>
                 <button
                   onClick={() => setShowPreview(!showPreview)}
-                  className="flex items-center gap-2 px-4 py-2 text-sm font-bold text-on-surface-variant hover:bg-surface-container rounded-full transition-all cursor-pointer select-none"
+                  className="flex items-center gap-2 px-4 py-2 text-sm font-bold text-on-surface-variant hover:bg-surface-container rounded-lg transition-all cursor-pointer select-none"
                 >
                   <span className="material-symbols-outlined text-lg">auto_stories</span>
                   <span className="hidden sm:inline">
@@ -640,13 +725,13 @@ The image above represents the clarity we seek in our prose. Deep greens, soft m
                 <div className="h-6 w-px bg-outline-variant/30 mx-2"></div>
                 <button
                   onClick={handleSaveDraft}
-                  className="px-6 py-2 bg-secondary-container text-on-secondary-container rounded-full text-sm font-bold hover:bg-surface-variant transition-colors cursor-pointer active:scale-95 duration-100"
+                  className="px-5 py-2 bg-secondary-container text-on-secondary-container border border-primary/20 rounded-lg text-sm font-bold hover:bg-primary hover:text-on-primary transition-colors cursor-pointer active:scale-95 duration-100"
                 >
                   Save Draft
                 </button>
                 <button
                   onClick={handlePublish}
-                  className="px-6 py-2 bg-primary text-on-primary rounded-full text-sm font-bold shadow-sm hover:opacity-90 active:scale-95 transition-all cursor-pointer"
+                  className="px-5 py-2 bg-primary text-on-primary rounded-lg text-sm font-bold hover:opacity-85 active:scale-95 transition-all cursor-pointer"
                 >
                   Publish
                 </button>
@@ -654,7 +739,7 @@ The image above represents the clarity we seek in our prose. Deep greens, soft m
             ) : (
               <button
                 onClick={handleNewPostClick}
-                className="flex items-center gap-2 px-6 py-2 bg-primary text-on-primary rounded-full text-sm font-bold shadow-sm hover:opacity-90 active:scale-95 transition-all cursor-pointer"
+                className="flex items-center gap-2 px-5 py-2 bg-primary text-on-primary rounded-lg text-sm font-bold hover:opacity-85 active:scale-95 transition-all cursor-pointer"
               >
                 <span className="material-symbols-outlined text-lg">add</span>
                 <span>New Post</span>
@@ -690,20 +775,46 @@ The image above represents the clarity we seek in our prose. Deep greens, soft m
                       <span className="material-symbols-outlined text-sm">schedule</span>
                       {calculateReadTime(content)}
                     </span>
-                    <div className="flex items-center gap-1.5">
-                      <span className="material-symbols-outlined text-sm select-none">tag</span>
-                      <select
-                        value={category}
-                        onChange={(e) => setCategory(e.target.value)}
-                        className="bg-transparent border-none outline-none py-0 pl-1 pr-6 font-semibold text-sm text-on-surface-variant/80 focus:ring-0 cursor-pointer focus:outline-none"
-                      >
-                        <option value="Philosophy" className="bg-background">Philosophy</option>
-                        <option value="Mindfulness" className="bg-background">Mindfulness</option>
-                        <option value="Nature" className="bg-background">Nature</option>
-                        <option value="Sustainability" className="bg-background">Sustainability</option>
-                        <option value="Writing" className="bg-background">Writing</option>
-                        <option value="Manual Craftsmanship" className="bg-background">Manual Craftsmanship</option>
-                      </select>
+                    <div className="flex flex-wrap items-center gap-2 max-w-full">
+                      <span className="material-symbols-outlined text-sm text-on-surface-variant/60 select-none">tag</span>
+                      {categories.map((cat) => (
+                        <span
+                          key={cat}
+                          className="inline-flex items-center gap-1 bg-surface-container text-on-surface text-xs font-bold px-2.5 py-1 rounded-full uppercase tracking-wider select-none border border-outline-variant/20"
+                        >
+                          {cat}
+                          <button
+                            type="button"
+                            onClick={() => setCategories(categories.filter((c) => c !== cat))}
+                            className="hover:text-primary transition-colors flex items-center justify-center font-bold text-xs"
+                            title="Remove category"
+                          >
+                            <span className="material-symbols-outlined text-xs">close</span>
+                          </button>
+                        </span>
+                      ))}
+                      <input
+                        type="text"
+                        placeholder="Add category..."
+                        className="bg-transparent border-none outline-none py-0.5 px-2 font-semibold text-xs text-on-surface-variant/80 focus:ring-0 focus:outline-none placeholder-on-surface-variant/40 max-w-[120px]"
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter" || e.key === ",") {
+                            e.preventDefault();
+                            const val = e.currentTarget.value.trim();
+                            if (val && !categories.includes(val)) {
+                              setCategories([...categories, val]);
+                            }
+                            e.currentTarget.value = "";
+                          }
+                        }}
+                        onBlur={(e) => {
+                          const val = e.currentTarget.value.trim();
+                          if (val && !categories.includes(val)) {
+                            setCategories([...categories, val]);
+                          }
+                          e.currentTarget.value = "";
+                        }}
+                      />
                     </div>
                   </div>
 
@@ -772,19 +883,55 @@ The image above represents the clarity we seek in our prose. Deep greens, soft m
                       No posts or drafts found.
                     </div>
                   ) : (
-                    <div className="overflow-x-auto rounded-xl border border-outline-variant/20 shadow-sm bg-surface-container-lowest">
+                    <div className="overflow-x-auto rounded-xl border border-outline-variant/20 bg-surface-container-lowest">
                       <table className="w-full border-collapse text-left text-sm">
-                        <thead className="bg-surface-container-low text-on-surface-variant font-semibold">
+                        <thead className="bg-surface-container-low text-on-surface-variant font-semibold select-none">
                           <tr>
-                            <th className="px-6 py-4">Title</th>
-                            <th className="px-6 py-4">Category</th>
-                            <th className="px-6 py-4">Status</th>
-                            <th className="px-6 py-4">Published</th>
+                            <th className="px-6 py-4 cursor-pointer hover:text-primary transition-colors" onClick={() => handleListSort("title")}>
+                              <div className="flex items-center gap-1">
+                                Title
+                                {listSortKey === "title" && (
+                                  <span className="material-symbols-outlined text-sm font-bold">
+                                    {listSortOrder === "asc" ? "arrow_upward" : "arrow_downward"}
+                                  </span>
+                                )}
+                              </div>
+                            </th>
+                            <th className="px-6 py-4 cursor-pointer hover:text-primary transition-colors" onClick={() => handleListSort("category")}>
+                              <div className="flex items-center gap-1">
+                                Category
+                                {listSortKey === "category" && (
+                                  <span className="material-symbols-outlined text-sm font-bold">
+                                    {listSortOrder === "asc" ? "arrow_upward" : "arrow_downward"}
+                                  </span>
+                                )}
+                              </div>
+                            </th>
+                            <th className="px-6 py-4 cursor-pointer hover:text-primary transition-colors" onClick={() => handleListSort("status")}>
+                              <div className="flex items-center gap-1">
+                                Status
+                                {listSortKey === "status" && (
+                                  <span className="material-symbols-outlined text-sm font-bold">
+                                    {listSortOrder === "asc" ? "arrow_upward" : "arrow_downward"}
+                                  </span>
+                                )}
+                              </div>
+                            </th>
+                            <th className="px-6 py-4 cursor-pointer hover:text-primary transition-colors" onClick={() => handleListSort("publishedAt")}>
+                              <div className="flex items-center gap-1">
+                                Published
+                                {listSortKey === "publishedAt" && (
+                                  <span className="material-symbols-outlined text-sm font-bold">
+                                    {listSortOrder === "asc" ? "arrow_upward" : "arrow_downward"}
+                                  </span>
+                                )}
+                              </div>
+                            </th>
                             <th className="px-6 py-4 text-right">Actions</th>
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-outline-variant/10">
-                          {filteredPostsList.map((post) => (
+                          {paginatedPostsList.map((post) => (
                             <tr key={post.id} className="hover:bg-surface-container-low/40 transition-colors">
                               <td className="px-6 py-4">
                                 <div className="font-bold text-on-surface hover:text-primary cursor-pointer line-clamp-1" onClick={() => handleEditPost(post)}>
@@ -795,9 +942,19 @@ The image above represents the clarity we seek in our prose. Deep greens, soft m
                                 </div>
                               </td>
                               <td className="px-6 py-4 whitespace-nowrap">
-                                <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-secondary-container text-on-secondary-container">
-                                  {post.category}
-                                </span>
+                                <div className="flex flex-wrap gap-1">
+                                  {post.categories && post.categories.length > 0 ? (
+                                    post.categories.map((cat) => (
+                                      <span key={cat} className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-secondary-container text-on-secondary-container uppercase tracking-wider">
+                                        {cat}
+                                      </span>
+                                    ))
+                                  ) : (
+                                    <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-secondary-container text-on-secondary-container">
+                                      {post.category}
+                                    </span>
+                                  )}
+                                </div>
                               </td>
                               <td className="px-6 py-4 whitespace-nowrap">
                                 {post.status === "published" ? (
@@ -851,6 +1008,36 @@ The image above represents the clarity we seek in our prose. Deep greens, soft m
                       </table>
                     </div>
                   )}
+
+                  {/* Pagination Controls for Posts List */}
+                  {totalListPages > 1 && (
+                    <div className="flex items-center justify-between mt-6 bg-surface-container-low dark:bg-surface-container p-4 rounded-xl border border-outline-variant/10 select-none">
+                      <p className="text-xs text-on-surface-variant">
+                        Showing <span className="font-bold">{Math.min((listPage - 1) * listPageSize + 1, filteredPostsList.length)}</span> to <span className="font-bold">{Math.min(listPage * listPageSize, filteredPostsList.length)}</span> of <span className="font-bold">{filteredPostsList.length}</span> posts
+                      </p>
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={() => setListPage(prev => Math.max(prev - 1, 1))}
+                          disabled={listPage === 1}
+                          className="px-3 py-1.5 rounded-lg text-xs font-bold bg-surface-container-highest border border-outline-variant/10 text-on-surface hover:bg-primary hover:text-on-primary transition-all disabled:opacity-50 disabled:pointer-events-none cursor-pointer flex items-center gap-1 focus:outline-none"
+                        >
+                          <span className="material-symbols-outlined text-sm font-bold">chevron_left</span>
+                          Previous
+                        </button>
+                        <span className="text-xs font-label px-3 py-1.5 bg-surface-container-high rounded-lg">
+                          {listPage} / {totalListPages}
+                        </span>
+                        <button
+                          onClick={() => setListPage(prev => Math.min(prev + 1, totalListPages))}
+                          disabled={listPage === totalListPages}
+                          className="px-3 py-1.5 rounded-lg text-xs font-bold bg-surface-container-highest border border-outline-variant/10 text-on-surface hover:bg-primary hover:text-on-primary transition-all disabled:opacity-50 disabled:pointer-events-none cursor-pointer flex items-center gap-1 focus:outline-none"
+                        >
+                          Next
+                          <span className="material-symbols-outlined text-sm font-bold">chevron_right</span>
+                        </button>
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
             </section>
@@ -869,19 +1056,19 @@ The image above represents the clarity we seek in our prose. Deep greens, soft m
 
                 {/* Overall Stats Cards */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
-                  <div className="bg-surface-container-low rounded-xl p-6 shadow-sm border border-outline-variant/20">
+                  <div className="bg-surface-container-low rounded-xl p-6 border border-outline-variant/20 transition-all duration-300 hover:shadow-md hover:-translate-y-0.5">
                     <h3 className="text-sm font-bold text-on-surface-variant mb-2">Total Views</h3>
                     <p className="text-4xl font-headline font-bold text-primary">
                       {posts.reduce((sum, p) => sum + (p.views || 0), 0).toLocaleString()}
                     </p>
                   </div>
-                  <div className="bg-surface-container-low rounded-xl p-6 shadow-sm border border-outline-variant/20">
+                  <div className="bg-surface-container-low rounded-xl p-6 border border-outline-variant/20 transition-all duration-300 hover:shadow-md hover:-translate-y-0.5">
                     <h3 className="text-sm font-bold text-on-surface-variant mb-2">Total Shares</h3>
                     <p className="text-4xl font-headline font-bold text-secondary">
                       {posts.reduce((sum, p) => sum + (p.shares || 0), 0).toLocaleString()}
                     </p>
                   </div>
-                  <div className="bg-surface-container-low rounded-xl p-6 shadow-sm border border-outline-variant/20">
+                  <div className="bg-surface-container-low rounded-xl p-6 border border-outline-variant/20 transition-all duration-300 hover:shadow-md hover:-translate-y-0.5">
                     <h3 className="text-sm font-bold text-on-surface-variant mb-2">Published Posts</h3>
                     <p className="text-4xl font-headline font-bold text-tertiary">
                       {posts.filter((p) => p.status === "published").length}
@@ -891,21 +1078,54 @@ The image above represents the clarity we seek in our prose. Deep greens, soft m
 
                 {/* Content Table for Analytics */}
                 <div className="w-full">
-                  <div className="overflow-x-auto rounded-xl border border-outline-variant/20 shadow-sm bg-surface-container-lowest">
+                  <div className="overflow-x-auto rounded-xl border border-outline-variant/20 bg-surface-container-lowest">
                     <table className="w-full border-collapse text-left text-sm">
-                      <thead className="bg-surface-container-low text-on-surface-variant font-semibold">
+                      <thead className="bg-surface-container-low text-on-surface-variant font-semibold select-none">
                         <tr>
-                          <th className="px-6 py-4">Title</th>
-                          <th className="px-6 py-4">Category</th>
-                          <th className="px-6 py-4 text-right">Views</th>
-                          <th className="px-6 py-4 text-right">Shares</th>
+                          <th className="px-6 py-4 cursor-pointer hover:text-primary transition-colors" onClick={() => handleAnalyticsSort("title")}>
+                            <div className="flex items-center gap-1">
+                              Title
+                              {analyticsSortKey === "title" && (
+                                <span className="material-symbols-outlined text-sm font-bold">
+                                  {analyticsSortOrder === "asc" ? "arrow_upward" : "arrow_downward"}
+                                </span>
+                              )}
+                            </div>
+                          </th>
+                          <th className="px-6 py-4 cursor-pointer hover:text-primary transition-colors" onClick={() => handleAnalyticsSort("category")}>
+                            <div className="flex items-center gap-1">
+                              Category
+                              {analyticsSortKey === "category" && (
+                                <span className="material-symbols-outlined text-sm font-bold">
+                                  {analyticsSortOrder === "asc" ? "arrow_upward" : "arrow_downward"}
+                                </span>
+                              )}
+                            </div>
+                          </th>
+                          <th className="px-6 py-4 cursor-pointer hover:text-primary transition-colors text-right" onClick={() => handleAnalyticsSort("views")}>
+                            <div className="flex items-center justify-end gap-1">
+                              Views
+                              {analyticsSortKey === "views" && (
+                                <span className="material-symbols-outlined text-sm font-bold">
+                                  {analyticsSortOrder === "asc" ? "arrow_upward" : "arrow_downward"}
+                                </span>
+                              )}
+                            </div>
+                          </th>
+                          <th className="px-6 py-4 cursor-pointer hover:text-primary transition-colors text-right" onClick={() => handleAnalyticsSort("shares")}>
+                            <div className="flex items-center justify-end gap-1">
+                              Shares
+                              {analyticsSortKey === "shares" && (
+                                <span className="material-symbols-outlined text-sm font-bold">
+                                  {analyticsSortOrder === "asc" ? "arrow_upward" : "arrow_downward"}
+                                </span>
+                              )}
+                            </div>
+                          </th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-outline-variant/10">
-                        {posts
-                          .filter((p) => p.status === "published")
-                          .sort((a, b) => (b.views || 0) - (a.views || 0))
-                          .map((post) => (
+                        {paginatedAnalyticsPosts.map((post) => (
                           <tr key={post.id} className="hover:bg-surface-container-low/40 transition-colors">
                             <td className="px-6 py-4">
                               <div className="font-bold text-on-surface line-clamp-1">
@@ -913,7 +1133,7 @@ The image above represents the clarity we seek in our prose. Deep greens, soft m
                               </div>
                             </td>
                             <td className="px-6 py-4 text-on-surface-variant">
-                              {post.category}
+                              {post.categories?.join(", ") || post.category}
                             </td>
                             <td className="px-6 py-4 font-bold text-right text-primary">
                               {post.views?.toLocaleString() || 0}
@@ -926,6 +1146,36 @@ The image above represents the clarity we seek in our prose. Deep greens, soft m
                       </tbody>
                     </table>
                   </div>
+
+                  {/* Pagination Controls for Analytics */}
+                  {totalAnalyticsPages > 1 && (
+                    <div className="flex items-center justify-between mt-6 bg-surface-container-low dark:bg-surface-container p-4 rounded-xl border border-outline-variant/10 select-none">
+                      <p className="text-xs text-on-surface-variant">
+                        Showing <span className="font-bold">{Math.min((analyticsPage - 1) * analyticsPageSize + 1, publishedPostsForAnalytics.length)}</span> to <span className="font-bold">{Math.min(analyticsPage * analyticsPageSize, publishedPostsForAnalytics.length)}</span> of <span className="font-bold">{publishedPostsForAnalytics.length}</span> entries
+                      </p>
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={() => setAnalyticsPage(prev => Math.max(prev - 1, 1))}
+                          disabled={analyticsPage === 1}
+                          className="px-3 py-1.5 rounded-lg text-xs font-bold bg-surface-container-highest border border-outline-variant/10 text-on-surface hover:bg-primary hover:text-on-primary transition-all disabled:opacity-50 disabled:pointer-events-none cursor-pointer flex items-center gap-1 focus:outline-none"
+                        >
+                          <span className="material-symbols-outlined text-sm font-bold">chevron_left</span>
+                          Previous
+                        </button>
+                        <span className="text-xs font-label px-3 py-1.5 bg-surface-container-high rounded-lg">
+                          {analyticsPage} / {totalAnalyticsPages}
+                        </span>
+                        <button
+                          onClick={() => setAnalyticsPage(prev => Math.min(prev + 1, totalAnalyticsPages))}
+                          disabled={analyticsPage === totalAnalyticsPages}
+                          className="px-3 py-1.5 rounded-lg text-xs font-bold bg-surface-container-highest border border-outline-variant/10 text-on-surface hover:bg-primary hover:text-on-primary transition-all disabled:opacity-50 disabled:pointer-events-none cursor-pointer flex items-center gap-1 focus:outline-none"
+                        >
+                          Next
+                          <span className="material-symbols-outlined text-sm font-bold">chevron_right</span>
+                        </button>
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
             </section>
@@ -949,7 +1199,7 @@ The image above represents the clarity we seek in our prose. Deep greens, soft m
                         setUserSuccess("");
                         setShowAddUserDialog(true);
                       }}
-                      className="bg-primary text-on-primary px-4 py-2.5 rounded-lg font-bold shadow-sm hover:opacity-90 active:scale-95 transition-all text-sm flex items-center gap-2"
+                      className="bg-primary text-on-primary px-4 py-2.5 rounded-lg font-bold hover:opacity-85 active:scale-95 transition-all text-sm flex items-center gap-2"
                     >
                       <span className="material-symbols-outlined text-[20px]">person_add</span>
                       <span>Add User</span>
@@ -960,7 +1210,7 @@ The image above represents the clarity we seek in our prose. Deep greens, soft m
                 <div className="w-full">
                   {/* Users List */}
                   <div>
-                    <div className="overflow-x-auto rounded-xl border border-outline-variant/20 shadow-sm bg-surface-container-lowest">
+                    <div className="overflow-x-auto rounded-xl border border-outline-variant/20 bg-surface-container-lowest">
                       <table className="w-full border-collapse text-left text-sm">
                         <thead className="bg-surface-container-low text-on-surface-variant font-semibold">
                           <tr>
@@ -1033,7 +1283,7 @@ The image above represents the clarity we seek in our prose. Deep greens, soft m
               {/* Add User Dialog Overlay */}
               {showAddUserDialog && (
                 <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm transition-opacity">
-                  <div className="bg-surface-container-lowest w-full max-w-md rounded-2xl shadow-2xl overflow-hidden border border-outline-variant/20 flex flex-col animate-in fade-in zoom-in-95 duration-200">
+                  <div className="bg-surface-container-lowest w-full max-w-md rounded-xl overflow-hidden border border-outline-variant/20 flex flex-col animate-in fade-in zoom-in-95 duration-200">
                     <div className="flex justify-between items-center p-6 border-b border-outline-variant/20 bg-surface-container-low">
                       <h3 className="text-xl font-bold font-headline text-on-surface">Add New User</h3>
                       <button 
@@ -1064,7 +1314,7 @@ The image above represents the clarity we seek in our prose. Deep greens, soft m
                             required
                             value={newUser.name}
                             onChange={e => setNewUser({...newUser, name: e.target.value})}
-                            className="px-4 py-3 bg-background border border-outline-variant/40 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent text-sm transition-all"
+                            className="px-4 py-3 bg-background border border-outline-variant/40 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent text-sm transition-all"
                             placeholder="e.g. Jane Doe"
                           />
                         </div>
@@ -1075,7 +1325,7 @@ The image above represents the clarity we seek in our prose. Deep greens, soft m
                             required
                             value={newUser.username}
                             onChange={e => setNewUser({...newUser, username: e.target.value})}
-                            className="px-4 py-3 bg-background border border-outline-variant/40 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent text-sm transition-all"
+                            className="px-4 py-3 bg-background border border-outline-variant/40 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent text-sm transition-all"
                             placeholder="e.g. jane"
                           />
                         </div>
@@ -1085,7 +1335,7 @@ The image above represents the clarity we seek in our prose. Deep greens, soft m
                             <select
                               value={newUser.role}
                               onChange={e => setNewUser({...newUser, role: e.target.value})}
-                              className="w-full px-4 py-3 bg-background border border-outline-variant/40 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent text-sm transition-all appearance-none cursor-pointer"
+                              className="w-full px-4 py-3 bg-background border border-outline-variant/40 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent text-sm transition-all appearance-none cursor-pointer"
                             >
                               <option value="Author">Author</option>
                               <option value="Admin">Admin</option>
@@ -1100,7 +1350,7 @@ The image above represents the clarity we seek in our prose. Deep greens, soft m
                             required
                             value={newUser.password}
                             onChange={e => setNewUser({...newUser, password: e.target.value})}
-                            className="px-4 py-3 bg-background border border-outline-variant/40 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent text-sm transition-all"
+                            className="px-4 py-3 bg-background border border-outline-variant/40 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent text-sm transition-all"
                             placeholder="••••••••"
                           />
                         </div>
@@ -1108,14 +1358,14 @@ The image above represents the clarity we seek in our prose. Deep greens, soft m
                           <button
                             type="button"
                             onClick={() => setShowAddUserDialog(false)}
-                            className="flex-1 px-4 py-3 rounded-xl font-bold text-on-surface-variant hover:bg-surface-variant transition-colors text-sm"
+                            className="flex-1 px-4 py-3 rounded-lg font-bold text-on-surface-variant hover:bg-surface-variant transition-colors text-sm"
                           >
                             Cancel
                           </button>
                           <button
                             type="submit"
                             disabled={isAddingUser}
-                            className="flex-1 bg-primary text-on-primary py-3 rounded-xl font-bold hover:opacity-90 active:scale-95 disabled:opacity-70 disabled:hover:scale-100 transition-all text-sm flex justify-center items-center gap-2 shadow-sm"
+                            className="flex-1 bg-primary text-on-primary py-3 rounded-lg font-bold hover:opacity-85 active:scale-95 disabled:opacity-70 disabled:hover:scale-100 transition-all text-sm flex justify-center items-center gap-2"
                           >
                             {isAddingUser ? (
                               <span className="material-symbols-outlined animate-spin text-lg">autorenew</span>
@@ -1133,7 +1383,7 @@ The image above represents the clarity we seek in our prose. Deep greens, soft m
               {/* Edit User Dialog Overlay */}
               {editingUser && (
                 <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm transition-opacity">
-                  <div className="bg-surface-container-lowest w-full max-w-md rounded-2xl shadow-2xl overflow-hidden border border-outline-variant/20 flex flex-col animate-in fade-in zoom-in-95 duration-200">
+                  <div className="bg-surface-container-lowest w-full max-w-md rounded-xl overflow-hidden border border-outline-variant/20 flex flex-col animate-in fade-in zoom-in-95 duration-200">
                     <div className="flex justify-between items-center p-6 border-b border-outline-variant/20 bg-surface-container-low">
                       <h3 className="text-xl font-bold font-headline text-on-surface">Edit User</h3>
                       <button 
@@ -1164,7 +1414,7 @@ The image above represents the clarity we seek in our prose. Deep greens, soft m
                             required
                             value={editingUser.name}
                             onChange={e => setEditingUser({...editingUser, name: e.target.value})}
-                            className="px-4 py-3 bg-background border border-outline-variant/40 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent text-sm transition-all"
+                            className="px-4 py-3 bg-background border border-outline-variant/40 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent text-sm transition-all"
                             placeholder="e.g. Jane Doe"
                           />
                         </div>
@@ -1175,7 +1425,7 @@ The image above represents the clarity we seek in our prose. Deep greens, soft m
                             required
                             value={editingUser.username}
                             onChange={e => setEditingUser({...editingUser, username: e.target.value})}
-                            className="px-4 py-3 bg-background border border-outline-variant/40 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent text-sm transition-all"
+                            className="px-4 py-3 bg-background border border-outline-variant/40 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent text-sm transition-all"
                             placeholder="e.g. jane"
                           />
                         </div>
@@ -1185,7 +1435,7 @@ The image above represents the clarity we seek in our prose. Deep greens, soft m
                             <select
                               value={editingUser.role}
                               onChange={e => setEditingUser({...editingUser, role: e.target.value})}
-                              className="w-full px-4 py-3 bg-background border border-outline-variant/40 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent text-sm transition-all appearance-none cursor-pointer"
+                              className="w-full px-4 py-3 bg-background border border-outline-variant/40 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent text-sm transition-all appearance-none cursor-pointer"
                             >
                               <option value="Author">Author</option>
                               <option value="Admin">Admin</option>
@@ -1197,14 +1447,14 @@ The image above represents the clarity we seek in our prose. Deep greens, soft m
                           <button
                             type="button"
                             onClick={() => setEditingUser(null)}
-                            className="flex-1 px-4 py-3 rounded-xl font-bold text-on-surface-variant hover:bg-surface-variant transition-colors text-sm"
+                            className="flex-1 px-4 py-3 rounded-lg font-bold text-on-surface-variant hover:bg-surface-variant transition-colors text-sm"
                           >
                             Cancel
                           </button>
                           <button
                             type="submit"
                             disabled={isUpdatingUser}
-                            className="flex-1 bg-primary text-on-primary py-3 rounded-xl font-bold hover:opacity-90 active:scale-95 disabled:opacity-70 disabled:hover:scale-100 transition-all text-sm flex justify-center items-center gap-2 shadow-sm"
+                            className="flex-1 bg-primary text-on-primary py-3 rounded-lg font-bold hover:opacity-85 active:scale-95 disabled:opacity-70 disabled:hover:scale-100 transition-all text-sm flex justify-center items-center gap-2"
                           >
                             {isUpdatingUser ? (
                               <span className="material-symbols-outlined animate-spin text-lg">autorenew</span>

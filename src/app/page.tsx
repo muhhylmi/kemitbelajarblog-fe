@@ -1,32 +1,55 @@
 "use client";
 
-import React, { useState } from "react";
-import { useRouter } from "next/navigation";
+import React, { useState, Suspense } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useBlog } from "@/context/BlogContext";
 import { useAuth } from "@/context/AuthContext";
 import { Header } from "@/components/Header";
 import { Footer } from "@/components/Footer";
 
-export default function HomeFeed() {
+function HomeFeedContent() {
   const { posts } = useBlog();
   const { user } = useAuth();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [displayLimit, setDisplayLimit] = useState(4); // initial limit for Discover More Stories
 
+  const yearParam = searchParams.get("year");
+  const selectedYear = yearParam ? parseInt(yearParam, 10) : null;
+
   // Only show published posts on the home feed
   const publishedPosts = posts.filter((p) => p.status === "published");
 
-  // Separate featured post and other posts
-  const featuredPost = publishedPosts.find((p) => p.isFeatured) || publishedPosts[0];
-  const regularPosts = publishedPosts.filter((p) => p.id !== featuredPost?.id);
+  // Filter posts by year if parameter is present
+  const yearFilteredPosts = selectedYear
+    ? publishedPosts.filter((p) => {
+      const dateStr = p.publishedAt;
+      if (!dateStr) return false;
+      if (dateStr.toLowerCase() === "today") return new Date().getFullYear() === selectedYear;
+      const match = dateStr.match(/\b(20\d{2}|19\d{2})\b/);
+      const postYear = match ? parseInt(match[1], 10) : new Date().getFullYear();
+      return postYear === selectedYear;
+    })
+    : publishedPosts;
+
+  // Sort posts by date to find newest
+  const sortedNewest = [...yearFilteredPosts].sort((a, b) => {
+    const dateA = new Date(a.publishedAt).getTime();
+    const dateB = new Date(b.publishedAt).getTime();
+    return dateB - dateA;
+  });
+  const featuredPosts = sortedNewest.slice(0, 3);
+  const regularPosts = yearFilteredPosts.filter(
+    (p) => !featuredPosts.some((f) => f.id === p.id)
+  );
 
   // Extract unique categories (ignoring case)
   const categories = Array.from(
     new Set(
       publishedPosts
-        .map((p) => p.category)
+        .flatMap((p) => p.categories || [])
         .filter((c) => c && c.toLowerCase() !== "featured insight")
     )
   );
@@ -34,7 +57,7 @@ export default function HomeFeed() {
   // Filter regular posts based on selection
   const filteredPosts = selectedCategory
     ? regularPosts.filter(
-      (p) => p.category.toLowerCase() === selectedCategory.toLowerCase()
+      (p) => p.categories && p.categories.some((c) => c.toLowerCase() === selectedCategory.toLowerCase())
     )
     : regularPosts;
 
@@ -43,18 +66,35 @@ export default function HomeFeed() {
   };
 
   // Pagination: limit the number of posts displayed initially, but only for regular unfiltered viewing
-  const isFiltered = selectedCategory !== null || viewMode !== "grid";
+  const isFiltered = selectedCategory !== null || selectedYear !== null || viewMode !== "grid";
   const displayedPosts = isFiltered ? filteredPosts : filteredPosts.slice(0, displayLimit);
 
   const getGreeting = () => {
-    const hour = new Date().getHours();
-    let timeGreeting = "Selamat malam";
-    if (hour >= 5 && hour < 12) timeGreeting = "Selamat pagi";
-    else if (hour >= 12 && hour < 15) timeGreeting = "Selamat siang";
-    else if (hour >= 15 && hour < 18) timeGreeting = "Selamat sore";
+    if (user) {
+      const hour = new Date().getHours();
+      let timeGreeting = "evening";
+      if (hour >= 5 && hour < 12) timeGreeting = "morning";
+      else if (hour >= 12 && hour < 17) timeGreeting = "afternoon";
 
-    const name = user ? user.name.split(" ")[0] : "Writer";
-    return `Halo, ${timeGreeting} ${name}.`;
+      const name = user.name.split(" ")[0];
+      return `Good ${timeGreeting}, ${name}.`;
+    }
+    return "Welcome to Kemitbelajar.";
+  };
+
+  const getSubGreeting = () => {
+    if (publishedPosts.length > 0) {
+      const sortedNewest = [...publishedPosts].sort((a, b) => {
+        const dateA = new Date(a.publishedAt).getTime();
+        const dateB = new Date(b.publishedAt).getTime();
+        return dateB - dateA;
+      });
+      const newest = sortedNewest[0];
+      if (newest) {
+        return `Fresh insights have arrived. Read our newest post: "${newest.title}".`;
+      }
+    }
+    return "New stories have been published. Explore the latest insights below.";
   };
 
   return (
@@ -68,71 +108,58 @@ export default function HomeFeed() {
             {getGreeting()}
           </h1>
           <p className="text-on-surface-variant text-xl max-w-2xl leading-relaxed">
-            The air is crisp, the coffee is warm, and the canvas is ready. What story is taking root today?
+            {getSubGreeting()}
           </p>
         </section>
 
-        {/* Featured Post Section */}
-        {featuredPost && (
+        {/* Featured Posts Section (3 Newest) */}
+        {featuredPosts.length > 0 && (
           <section className="mb-20">
-            <div
-              onClick={() => handlePostClick(featuredPost.id)}
-              className="group relative overflow-hidden rounded-xl bg-surface-container-low soft-shadow transition-all duration-500 hover:-translate-y-1 cursor-pointer"
-            >
-              <div className="grid md:grid-cols-2 items-center">
-                <div className="aspect-[4/3] overflow-hidden bg-surface-container-high">
-                  {featuredPost.image ? (
-                    <img
-                      src={featuredPost.image}
-                      alt={featuredPost.imageAlt || featuredPost.title}
-                      className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
-                    />
-                  ) : (
-                    <div className="w-full h-full flex items-center justify-center bg-tertiary-container/10">
-                      <span className="material-symbols-outlined text-tertiary text-6xl">
-                        auto_stories
-                      </span>
+            <h3 className="font-headline text-2xl font-bold mb-6 text-on-surface border-b border-outline-variant/20 pb-3 select-none">
+              Featured Insights
+            </h3>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              {featuredPosts.map((post) => (
+                <article
+                  key={post.id}
+                  onClick={() => handlePostClick(post.id)}
+                  className="group cursor-pointer flex flex-col justify-between h-full bg-surface-container-low dark:bg-surface-container p-6 rounded-xl border border-outline-variant/10 transition-all duration-300 hover:-translate-y-1 hover:shadow-md"
+                >
+                  <div>
+                    <div className="rounded-lg overflow-hidden mb-4 aspect-video bg-surface-container-high relative">
+                      {post.image ? (
+                        <img
+                          src={post.image}
+                          alt={post.imageAlt || post.title}
+                          className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+                        />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center bg-tertiary-container/10">
+                          <span className="material-symbols-outlined text-tertiary text-4xl">
+                            auto_stories
+                          </span>
+                        </div>
+                      )}
                     </div>
-                  )}
-                </div>
-                <div className="p-8 md:p-12">
-                  <span className="text-tertiary dark:text-tertiary-container font-bold text-sm tracking-widest uppercase mb-4 block">
-                    {featuredPost.category}
-                  </span>
-                  <h2 className="font-headline text-3xl md:text-4xl text-on-surface mb-6 leading-tight group-hover:text-primary dark:group-hover:text-primary-fixed-dim transition-colors">
-                    {featuredPost.title}
-                  </h2>
-                  <p className="text-on-surface-variant text-lg mb-8 leading-relaxed line-clamp-3">
-                    {featuredPost.summary}
-                  </p>
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-full bg-primary-container dark:bg-primary flex items-center justify-center text-on-primary-container dark:text-on-primary">
-                        <span
-                          className="material-symbols-outlined"
-                          style={{ fontVariationSettings: "'FILL' 1" }}
-                        >
-                          person
+                    <div className="flex flex-wrap gap-1.5 mb-3">
+                      {post.categories && post.categories.map((cat) => (
+                        <span key={cat} className="bg-secondary-container text-on-secondary-container text-[10px] font-bold px-2.5 py-0.5 rounded-full uppercase tracking-wider">
+                          {cat}
                         </span>
-                      </div>
-                      <div>
-                        <p className="text-sm font-bold text-on-surface">
-                          {featuredPost.author.name}
-                        </p>
-                        <p className="text-xs text-on-surface-variant">
-                          {featuredPost.readTime} • {featuredPost.publishedAt}
-                        </p>
-                      </div>
+                      ))}
                     </div>
-                    <button className="flex items-center gap-2 text-primary dark:text-primary-fixed-dim font-bold group-hover:translate-x-2 transition-transform cursor-pointer">
-                      Read Story{" "}
-                      <span className="material-symbols-outlined text-lg">
-                        arrow_forward
-                      </span>
-                    </button>
+                    <h4 className="font-headline text-xl font-bold mb-2 group-hover:text-primary dark:group-hover:text-primary-fixed-dim transition-colors line-clamp-2">
+                      {post.title}
+                    </h4>
+                    <p className="text-on-surface-variant text-sm line-clamp-2 mb-4 leading-relaxed">
+                      {post.summary}
+                    </p>
                   </div>
-                </div>
-              </div>
+                  <p className="text-xs text-on-surface-variant font-medium mt-auto pt-2 border-t border-outline-variant/10">
+                    {post.readTime} • {post.publishedAt}
+                  </p>
+                </article>
+              ))}
             </div>
           </section>
         )}
@@ -143,8 +170,8 @@ export default function HomeFeed() {
             <button
               onClick={() => setSelectedCategory(null)}
               className={`px-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider transition-all cursor-pointer ${selectedCategory === null
-                  ? "bg-primary text-on-primary"
-                  : "bg-surface-container hover:bg-surface-variant text-on-surface-variant"
+                ? "bg-primary text-on-primary"
+                : "bg-surface-container hover:bg-surface-variant text-on-surface-variant"
                 }`}
             >
               All Exploration
@@ -154,13 +181,25 @@ export default function HomeFeed() {
                 key={cat}
                 onClick={() => setSelectedCategory(cat)}
                 className={`px-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider transition-all cursor-pointer ${selectedCategory?.toLowerCase() === cat.toLowerCase()
-                    ? "bg-primary text-on-primary"
-                    : "bg-surface-container hover:bg-surface-variant text-on-surface-variant"
+                  ? "bg-primary text-on-primary"
+                  : "bg-surface-container hover:bg-surface-variant text-on-surface-variant"
                   }`}
               >
                 {cat}
               </button>
             ))}
+            {selectedYear && (
+              <div className="flex items-center gap-1.5 bg-secondary-container text-on-secondary-container px-3 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider select-none">
+                <span>Year: {selectedYear}</span>
+                <button
+                  onClick={() => router.push("/")}
+                  className="hover:text-primary transition-colors flex items-center justify-center cursor-pointer ml-1"
+                  title="Clear Year Filter"
+                >
+                  <span className="material-symbols-outlined text-sm font-bold">close</span>
+                </button>
+              </div>
+            )}
           </div>
 
           <div className="flex items-center gap-4 justify-end">
@@ -171,20 +210,22 @@ export default function HomeFeed() {
               <button
                 onClick={() => setViewMode("grid")}
                 className={`p-2 rounded-full transition-colors cursor-pointer ${viewMode === "grid"
-                    ? "bg-surface-variant text-primary"
-                    : "hover:bg-surface-variant text-on-surface-variant"
+                  ? "bg-surface-variant text-primary"
+                  : "hover:bg-surface-variant text-on-surface-variant"
                   }`}
                 aria-label="Grid View"
+                title="Grid View"
               >
                 <span className="material-symbols-outlined">grid_view</span>
               </button>
               <button
                 onClick={() => setViewMode("list")}
                 className={`p-2 rounded-full transition-colors cursor-pointer ${viewMode === "list"
-                    ? "bg-surface-variant text-primary"
-                    : "hover:bg-surface-variant text-on-surface-variant"
+                  ? "bg-surface-variant text-primary"
+                  : "hover:bg-surface-variant text-on-surface-variant"
                   }`}
                 aria-label="List View"
+                title="List View"
               >
                 <span className="material-symbols-outlined">view_list</span>
               </button>
@@ -211,10 +252,12 @@ export default function HomeFeed() {
                   </div>
                 )}
                 <div className="flex-1 w-full">
-                  <div className="flex gap-2 mb-2">
-                    <span className="text-xs font-bold text-tertiary dark:text-tertiary-container uppercase tracking-wider">
-                      {post.category}
-                    </span>
+                  <div className="flex flex-wrap gap-1.5 mb-2">
+                    {post.categories && post.categories.map((cat) => (
+                      <span key={cat} className="text-xs font-bold text-tertiary dark:text-tertiary-container uppercase tracking-wider">
+                        {cat}
+                      </span>
+                    ))}
                   </div>
                   <h4 className="font-headline text-2xl font-bold mb-2 group-hover:text-primary dark:group-hover:text-primary-fixed-dim transition-colors">
                     {post.title}
@@ -248,7 +291,7 @@ export default function HomeFeed() {
               let colSpanClass = "md:col-span-3";
               let cardStyle = "standard";
 
-              if (!selectedCategory) {
+              if (!selectedCategory && displayedPosts.length >= 4) {
                 if (idx === 0) {
                   colSpanClass = "md:col-span-3";
                 } else if (idx === 1) {
@@ -260,6 +303,14 @@ export default function HomeFeed() {
                   colSpanClass = "md:col-span-4";
                   cardStyle = "text-only";
                 }
+              } else if (!selectedCategory) {
+                if (displayedPosts.length === 3) {
+                  colSpanClass = "md:col-span-2";
+                } else if (displayedPosts.length === 1) {
+                  colSpanClass = "md:col-span-6";
+                } else {
+                  colSpanClass = "md:col-span-3";
+                }
               }
 
               if (cardStyle === "text-only") {
@@ -267,26 +318,34 @@ export default function HomeFeed() {
                   <article
                     key={post.id}
                     onClick={() => handlePostClick(post.id)}
-                    className={`${colSpanClass} group cursor-pointer h-full bg-tertiary-container/10 border border-tertiary/10 rounded-xl p-8 flex flex-col justify-center relative overflow-hidden soft-shadow`}
+                    className={`${colSpanClass} group cursor-pointer h-full bg-surface-container-low dark:bg-surface-container rounded-xl p-8 flex flex-col justify-center relative overflow-hidden transition-all duration-300 hover:-translate-y-1 hover:shadow-md`}
                   >
-                    <div className="absolute -right-12 -top-12 w-48 h-48 bg-tertiary/10 rounded-full blur-3xl group-hover:bg-tertiary/20 transition-all duration-700"></div>
                     <span
-                      className="material-symbols-outlined text-tertiary dark:text-tertiary-container text-4xl mb-4"
-                      style={{ fontVariationSettings: "'FILL' 1" }}
+                      className="material-symbols-outlined text-primary dark:text-primary-fixed-dim text-4xl mb-4"
                     >
                       auto_stories
                     </span>
-                    <h4 className="font-headline text-2xl font-bold mb-4 max-w-sm group-hover:text-tertiary dark:group-hover:text-tertiary-container transition-colors">
+                    <h4 className="font-headline text-2xl font-bold mb-4 max-w-sm group-hover:text-primary dark:group-hover:text-primary-fixed-dim transition-colors">
                       {post.title}
                     </h4>
                     <p className="text-on-surface-variant text-lg mb-6 leading-relaxed">
                       {post.summary}
                     </p>
                     <div className="flex items-center gap-4">
-                      <span className="text-sm font-bold text-tertiary dark:text-tertiary-container">
-                        {post.category || "Long Read"}
-                      </span>
-                      <span className="w-1.5 h-1.5 bg-tertiary/30 rounded-full"></span>
+                      <div className="flex flex-wrap gap-1.5">
+                        {post.categories && post.categories.length > 0 ? (
+                          post.categories.map((cat) => (
+                            <span key={cat} className="text-xs font-bold text-primary dark:text-primary-fixed-dim uppercase tracking-wider">
+                              {cat}
+                            </span>
+                          ))
+                        ) : (
+                          <span className="text-xs font-bold text-primary dark:text-primary-fixed-dim uppercase tracking-wider">
+                            Long Read
+                          </span>
+                        )}
+                      </div>
+                      <span className="w-1.5 h-1.5 bg-outline-variant/50 rounded-full"></span>
                       <span className="text-xs text-on-surface-variant font-medium">
                         {post.readTime} • {post.publishedAt}
                       </span>
@@ -352,10 +411,12 @@ export default function HomeFeed() {
                     )}
                   </div>
                   <div className="px-2">
-                    <div className="flex gap-2 mb-3">
-                      <span className="bg-secondary-container text-on-secondary-container text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider">
-                        {post.category}
-                      </span>
+                    <div className="flex flex-wrap gap-1.5 mb-3">
+                      {post.categories && post.categories.map((cat) => (
+                        <span key={cat} className="bg-secondary-container text-on-secondary-container text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider">
+                          {cat}
+                        </span>
+                      ))}
                     </div>
                     <h4 className="font-headline text-xl font-bold mb-2 group-hover:text-primary dark:group-hover:text-primary-fixed-dim transition-colors">
                       {post.title}
@@ -381,7 +442,7 @@ export default function HomeFeed() {
         {/* Load More Button */}
         {!isFiltered && displayLimit < filteredPosts.length && (
           <div className="mt-16 flex justify-center">
-            <button 
+            <button
               onClick={() => setDisplayLimit((prev) => prev + 4)}
               className="bg-surface-container-highest text-on-surface px-8 py-3 rounded-full font-bold hover:bg-primary hover:text-on-primary dark:hover:bg-primary-container dark:hover:text-on-primary-container transition-all duration-300 active:scale-95 flex items-center gap-2 cursor-pointer shadow-sm"
             >
@@ -408,5 +469,24 @@ export default function HomeFeed() {
         </span>
       </button>
     </div>
+  );
+}
+
+export default function HomeFeed() {
+  return (
+    <Suspense
+      fallback={
+        <div className="p-8 text-center text-on-surface-variant font-headline min-h-screen flex items-center justify-center bg-background">
+          <div className="flex flex-col items-center gap-4">
+            <span className="material-symbols-outlined text-4xl animate-spin text-primary">
+              sync
+            </span>
+            <span>Loading feed...</span>
+          </div>
+        </div>
+      }
+    >
+      <HomeFeedContent />
+    </Suspense>
   );
 }

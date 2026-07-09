@@ -9,6 +9,7 @@ export interface Post {
   title: string;
   summary: string;
   content: string;
+  categories: string[];
   category: string;
   author: Author;
   readTime: string;

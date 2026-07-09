@@ -126,7 +126,7 @@ export default function ArticleDetail() {
         return (
           <blockquote
             key={idx}
-            className="border-l-4 border-primary dark:border-primary-fixed-dim pl-6 py-2 my-8 font-headline text-xl text-on-surface-variant italic bg-surface-container/30 rounded-r-lg"
+            className="border border-outline-variant/30 pl-6 pr-6 py-4 my-8 font-headline text-xl text-on-surface-variant italic bg-surface-container-low rounded-lg relative"
           >
             {trimmed.replace(/^>\s*/gm, "")}
           </blockquote>
@@ -136,7 +136,7 @@ export default function ArticleDetail() {
       const imgMatch = trimmed.match(/^!\[(.*?)\]\((.*?)\)$/);
       if (imgMatch) {
         return (
-          <div key={idx} className="my-10 rounded-xl overflow-hidden shadow-sm">
+          <div key={idx} className="my-10 rounded-xl overflow-hidden bg-surface-container-low">
             <img src={imgMatch[2]} alt={imgMatch[1]} className="w-full h-auto object-cover" />
           </div>
         );
@@ -193,18 +193,22 @@ export default function ArticleDetail() {
         {/* Hero Section */}
         <div className="max-w-5xl mx-auto px-6 mt-12 md:mt-20">
           <div className="flex flex-col items-center text-center mb-12">
-            <div className="inline-flex items-center gap-2 px-3.5 py-1 bg-secondary-container text-on-secondary-container rounded-full text-sm font-semibold mb-6">
-              <span className="material-symbols-outlined text-sm select-none">
-                {post.category?.toLowerCase() === "nature"
-                  ? "forest"
-                  : post.category?.toLowerCase() === "mindfulness"
-                  ? "spa"
-                  : "auto_stories"}
-              </span>
-              {post.category}
+            <div className="flex flex-wrap justify-center gap-2 mb-6">
+              {post.categories && post.categories.map((cat) => (
+                <div key={cat} className="inline-flex items-center gap-2 px-3.5 py-1 bg-secondary-container text-on-secondary-container rounded-full text-sm font-semibold">
+                  <span className="material-symbols-outlined text-sm select-none">
+                    {cat.toLowerCase() === "nature"
+                      ? "forest"
+                      : cat.toLowerCase() === "mindfulness"
+                      ? "spa"
+                      : "auto_stories"}
+                  </span>
+                  {cat}
+                </div>
+              ))}
             </div>
 
-            <h1 className="text-4xl md:text-6xl font-bold text-on-surface leading-tight max-w-3xl mb-8 font-headline">
+            <h1 className="text-4xl md:text-6xl font-bold text-on-surface leading-tight max-w-3xl mb-8 font-headline tracking-tight text-balance">
               {post.title}
             </h1>
 
@@ -226,7 +230,7 @@ export default function ArticleDetail() {
 
           {/* Featured Image */}
           {post.image && (
-            <div className="relative w-full aspect-[21/9] rounded-xl overflow-hidden shadow-sm mb-16 bg-surface-container-low">
+            <div className="relative w-full aspect-[21/9] rounded-xl overflow-hidden mb-16 bg-surface-container-low">
               <img
                 src={post.image}
                 alt={post.imageAlt || post.title}
@@ -243,7 +247,7 @@ export default function ArticleDetail() {
 
           {/* Special Static Box for "Julian Thorne" article - Custom design segment */}
           {post.id === "rooted-living" && (
-            <div className="my-12 p-8 bg-surface-container rounded-xl flex flex-col md:flex-row items-center gap-8 shadow-sm">
+            <div className="my-12 p-8 bg-surface-container-low dark:bg-surface-container rounded-xl flex flex-col md:flex-row items-center gap-8 border border-outline-variant/10 transition-all duration-300 hover:shadow-md hover:-translate-y-0.5">
               <div className="flex-grow">
                 <h3 className="text-2xl font-bold font-headline mb-3 text-on-surface">
                   Quiet Rituals
@@ -252,7 +256,7 @@ export default function ArticleDetail() {
                   Discover how small, tactile habits like morning tea or manual journaling can lower cortisol levels and improve long-term focus.
                 </p>
               </div>
-              <button className="bg-primary text-on-primary dark:bg-primary-container dark:text-on-primary-container px-6 py-3 rounded-lg whitespace-nowrap hover:opacity-90 transition-all shadow-sm cursor-pointer font-bold active:scale-95 duration-150">
+              <button className="bg-primary text-on-primary dark:bg-primary-container dark:text-on-primary-container px-5 py-2.5 rounded-lg whitespace-nowrap hover:opacity-85 transition-all cursor-pointer font-bold active:scale-95 duration-150 text-sm shadow-sm">
                 Explore Rituals
               </button>
             </div>
@@ -281,13 +285,15 @@ export default function ArticleDetail() {
         {/* Social Share & Tags */}
         <div className="max-w-2xl mx-auto px-6 mt-16 pt-8 border-t border-outline-variant/30 flex flex-wrap justify-between items-center gap-4">
           <div className="flex flex-wrap gap-2">
-            <span className="px-3 py-1 bg-surface-variant text-on-surface-variant rounded-md text-xs font-semibold">
-              #{post.category?.toLowerCase().replace(/\s+/g, "-")}
-            </span>
-            <span className="px-3 py-1 bg-surface-variant text-on-surface-variant rounded-md text-xs font-semibold">
+            {post.categories && post.categories.map((cat) => (
+              <span key={cat} className="px-3 py-1.5 bg-surface-container-high text-on-surface-variant rounded-full text-xs font-semibold">
+                #{cat.toLowerCase().replace(/\s+/g, "-")}
+              </span>
+            ))}
+            <span className="px-3 py-1.5 bg-surface-container-high text-on-surface-variant rounded-full text-xs font-semibold">
               #slowreading
             </span>
-            <span className="px-3 py-1 bg-surface-variant text-on-surface-variant rounded-md text-xs font-semibold">
+            <span className="px-3 py-1.5 bg-surface-container-high text-on-surface-variant rounded-full text-xs font-semibold">
               #rooted-living
             </span>
           </div>

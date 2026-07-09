@@ -3,8 +3,7 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from "react";
 import { Post } from "../types";
 import { useAuth } from "./AuthContext";
-
-const API_BASE_URL = "/api";
+import { API_BASE_URL } from "@/config";
 
 // Standard API response envelope from the backend
 interface APIResponse<T> {
